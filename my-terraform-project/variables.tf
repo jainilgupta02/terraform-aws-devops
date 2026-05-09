@@ -16,7 +16,7 @@ variable "instance_type" {
 variable "bucket_name" {
   description = "A unique name for the S3 bucket"
   type        = string
-  # No default - user must provide this value
+  default     = "my-bucket-jainil-devops-2026"
 }
 
 # Variable for the VPC CIDR block
