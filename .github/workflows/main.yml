@@ -1,0 +1,100 @@
+name: Nginx EC2 — Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'my-terraform-project/**'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'my-terraform-project/**'
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Apply or Destroy?"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: ap-south-1
+  TF_VERSION: 1.7.0
+
+jobs:
+  terraform:
+    name: Terraform Deployment
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: my-terraform-project
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # 1. Checkout Repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+
+      # 3. Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # 4. Terraform Init
+      - name: Terraform Init
+        run: terraform init
+
+      # 5. Terraform Format Check
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      # 6. Terraform Validate
+      - name: Terraform Validate
+        run: terraform validate
+
+      # 7. Terraform Plan
+      - name: Terraform Plan
+        run: |
+          if [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
+            terraform plan -destroy -out=tfplan
+          else
+            terraform plan -out=tfplan
+          fi
+
+      # 8. Terraform Apply
+      - name: Terraform Apply
+        if: github.event_name == 'push'
+        run: |
+          if [[ "${{ github.event.inputs.action }}" != "destroy" ]]; then
+            terraform apply -auto-approve tfplan
+          fi
+
+      # 9. Terraform Destroy
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform apply -auto-approve tfplan
+
+      # 10. Show Outputs
+      - name: Show Terraform Outputs
+        if: github.event_name == 'push'
+        run: terraform output
