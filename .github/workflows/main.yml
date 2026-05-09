@@ -1,13 +1,7 @@
-name: Nginx EC2 — Terraform CI/CD
+name: Terraform Deployment
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'my-terraform-project/**'
-
-  pull_request:
     branches:
       - main
     paths:
@@ -25,24 +19,20 @@ on:
           - destroy
 
 env:
-  AWS_REGION: ap-south-1
-  TF_VERSION: 1.7.0
+  TF_VERSION: "1.7.0"
 
 jobs:
   terraform:
-    name: Terraform Deployment
+    name: Terraform CI/CD
     runs-on: ubuntu-latest
 
     defaults:
       run:
         working-directory: my-terraform-project
 
-    permissions:
-      contents: read
-      pull-requests: write
-
     steps:
-      # 1. Checkout Repository
+
+      # 1. Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -50,9 +40,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       # 3. Setup Terraform
       - name: Setup Terraform
@@ -83,11 +73,8 @@ jobs:
 
       # 8. Terraform Apply
       - name: Terraform Apply
-        if: github.event_name == 'push'
-        run: |
-          if [[ "${{ github.event.inputs.action }}" != "destroy" ]]; then
-            terraform apply -auto-approve tfplan
-          fi
+        if: github.event.inputs.action != 'destroy'
+        run: terraform apply -auto-approve tfplan
 
       # 9. Terraform Destroy
       - name: Terraform Destroy
@@ -96,5 +83,4 @@ jobs:
 
       # 10. Show Outputs
       - name: Show Terraform Outputs
-        if: github.event_name == 'push'
         run: terraform output
